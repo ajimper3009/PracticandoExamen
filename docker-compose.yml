@@ -1,0 +1,90 @@
+services:
+
+  traefik:
+    image: "traefik:v3.2"
+    container_name: "traefik"
+    # restart: always # add
+    command:
+      - "--log.level=INFO"  # logging levels are TRACE, DEBUG, INFO, WARN, ERROR, FATAL, and PANIC.
+      - "--api.dashboard=true"
+      - "--api.insecure=true" 
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+
+      # Bloque letsencrypt
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entryPoints.websecure.address=:443"
+
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=ajimper3009@fp.iesromerovargas.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    
+      ## La línea comentada --certificatesresolvers.myresolver.acme.caserver apunta al entorno de pruebas de ## Let's Encrypt. Esto es útil para evitar límites de emisión durante las pruebas.
+      # # - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"     
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`alejandrojimenez.tech`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
+      # Añade autenticación test/test
+      - "traefik.http.routers.traefik.middlewares=myauth"
+      - "traefik.http.middlewares.myauth.basicauth.users=test:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+
+    ports:
+      - "443:443"
+      - "8080:8080"
+      # - "8000:8000"
+      - "80:80"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: "whoami"
+    labels:
+      - "traefik.enable=true"
+      # Usar  cada uno SU DOMINIO .tech
+      - "traefik.http.routers.whoami.rule=Host(`whoami.alejandrojimenez.tech`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls.certresolver=myresolver"
+
+  api:
+    # build: .
+    image: ${IMAGE}
+    container_name: "api"
+    # ports:
+    #   - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.alejandrojimenez.tech`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=myresolver"     
+
+  db:
+    image: mariadb #  mysql  
+    container_name: api-db
+    restart: always
+    env_file:
+      - .env
+    # ports:
+    #   - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # adminer:
+  #   image: adminer
+  #   restart: always
+  #   ports:
+  #     - 8888:8080
+
+volumes:
+  db_data:

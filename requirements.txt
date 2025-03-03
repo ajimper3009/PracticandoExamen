@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pymysql
+sqlalchemy
+email-validator  
+cryptography
+
+pylint
+flake8
+
+pytest 
+httpx
+
+

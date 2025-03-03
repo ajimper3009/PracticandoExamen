@@ -1,0 +1,68 @@
+name: docker&aws
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - app/**
+  pull_request:
+    branches: [ main ]
+    paths:
+      - app/**
+
+env:
+  IMAGE_NAME: fastapiserver
+  IMAGE_TAG: latest
+  COMPOSE: compose.yml
+
+jobs:
+  build:
+    name: build and push Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+          
+      - name: Login to DockerHub
+        uses: docker/login-action@v3 
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true 
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+  aws:
+    name: Deploy image to aws
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: copy docker compose via ssh key
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.AWS_HOSTNAME }}
+        username: ${{ secrets.AWS_USERNAME }}
+        port: 22 # ${{ secrets.PORT }}
+        key: ${{ secrets.AWS_PRIVATEKEY }}
+        source: ${{ env.COMPOSE }}
+        target: /home/admin
+    - name: script deploy docker services
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.AWS_HOSTNAME }}
+        username: ${{ secrets.AWS_USERNAME }}
+        key: ${{ secrets.AWS_PRIVATEKEY }}
+        port: 22  # ${{ secrets.PORT }}
+        script: |
+            sleep 30
+            docker compose down api
+            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            docker compose up -d traefik db whoami
+            sleep 2 
+            docker compose up -d api
+
+
