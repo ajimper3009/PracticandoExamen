@@ -13,8 +13,8 @@ on:
 env:
   IMAGE_NAME: fastapiserver
   IMAGE_TAG: latest
-  COMPOSE: compose.yml
-  
+  COMPOSE: docker-compose.yml
+
 jobs:
   build:
     name: build and push Docker image
