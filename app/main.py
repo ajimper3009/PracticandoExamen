@@ -7,6 +7,7 @@ from app import models, schemas, crud
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+#comentario
 
 # Dependencia para obtener la sesión de la base de datos
 def get_db():
